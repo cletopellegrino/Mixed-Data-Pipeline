@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.feature_selection import mutual_info_classif, mutual_info_regression, mutual_info_score
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression 
+from sklearn.metrics import mutual_info_score
 from sklearn.utils.validation import check_is_fitted
 from scipy.stats import gaussian_kde
 

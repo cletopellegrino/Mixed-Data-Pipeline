@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_X_y
-from over_sampling import MixedKNN
+from model import MixedKNN
 
 class MixedEditedNearestNeighbors(BaseEstimator):
     def __init__(self, k_neighbors=3, sampling_strategy=None):
