@@ -14,7 +14,6 @@ class SMOTE_ENC(BaseEstimator):
         self.continuous_features = continuous_features
 
     def fit_resample(self, X, y):
-        
         if isinstance(self.sampling_strategy, dict):
             sampling_strategy_dict = {}
             self.class_counts = dict(Counter(y))
@@ -78,7 +77,7 @@ class SMOTE_ENC(BaseEstimator):
         else:
             smote = SMOTE(random_state=0, sampling_strategy=self.sampling_strategy, k_neighbors=self.k_neighbors)
         X_resampled, y_resampled = smote.fit_resample(X, y)
-        
+
         for feature in self.categorical_features:
             reverse_encoding = {v: k for k, v in encoded_values[feature].items()}
             X_resampled[feature] = X_resampled[feature].apply(lambda x: reverse_encoding.get(x, x))
@@ -86,13 +85,51 @@ class SMOTE_ENC(BaseEstimator):
             X_resampled[feature] = X_resampled[feature].astype("category")
         
         # Fix categorical values for synthetic samples
+        synthetic_indices = range(len(y), len(y_resampled))
+
         for feature in self.categorical_features:
-            synthetic_indices = range(len(y), len(y_resampled))
-            nn = NearestNeighbors(n_neighbors=self.k_neighbors)
-            nn.fit(X_resampled.iloc[:len(y)][self.continuous_features].values)
-            for idx in synthetic_indices:
-                neighbors = nn.kneighbors([X_resampled.iloc[idx][self.continuous_features]], return_distance=False)[0]
-                majority_value = X_resampled.iloc[neighbors][feature].mode()[0]
-                X_resampled.at[idx, feature] = majority_value
+            if len(self.continuous_features) > 0:
+                original_values_string = np.array(list(encoded_values[feature].keys()))
+                X_resampled[feature] = X_resampled[feature].astype(object)
+
+                nn = NearestNeighbors(n_neighbors=self.k_neighbors)
+                nn.fit(X_resampled.iloc[:len(y)][self.continuous_features].values)
+                
+                for idx in synthetic_indices:
+                    current_value = X_resampled.at[idx, feature]
+                    # Controlla se il valore corrente è già convertito
+                    if current_value in original_values_string:
+                        continue
+
+                    neighbors = nn.kneighbors([X_resampled.iloc[idx][self.continuous_features]], return_distance=False)[0]
+                    majority_value = X_resampled.iloc[neighbors][feature].mode()[0]
+                    X_resampled.at[idx, feature] = majority_value
+            else:
+                original_values_dict = encoded_values[feature]
+                original_values_string = np.array(list(encoded_values[feature].keys()))
+                original_values_val = np.array(list(encoded_values[feature].values()))
+                
+                X_resampled[feature] = X_resampled[feature].astype(object)
+                
+                for idx in synthetic_indices:
+                    current_value = X_resampled.at[idx, feature]
+                    # Controlla se il valore corrente è già convertito
+                    if current_value in original_values_string:
+                        continue
+                    # Trova il valore più vicino tra quelli originali
+                    difference = np.abs(original_values_val - current_value)
+                    nearest_value = original_values_val[np.argmin(difference)]
+                    for string, val in original_values_dict.items():
+                        if val == nearest_value:
+                            nearest_string = string
+                            break
+                    
+                    X_resampled.at[idx, feature] = nearest_string
+
+                reverse_encoding = {v: k for k, v in encoded_values[feature].items()}
+                X_resampled[feature] = X_resampled[feature].apply(lambda x: reverse_encoding.get(x, x))
+
+            # Convert back to categorical type
+            X_resampled[feature] = X_resampled[feature].astype("category")
 
         return X_resampled, y_resampled
