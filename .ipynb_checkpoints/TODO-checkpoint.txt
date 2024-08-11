@@ -1,2 +1,0 @@
-risolvere il warning nel fit
-ottimizzare il codice, in particolare eliminare la separazione tra le variabili
