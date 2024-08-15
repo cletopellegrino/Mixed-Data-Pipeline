@@ -4,16 +4,40 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import NearestNeighbors
 from imblearn.over_sampling import SMOTE, BorderlineSMOTE
+from typing import Union, Dict, List
 
 class SMOTE_ENC(BaseEstimator):
-    def __init__(self, sampling_strategy, k_neighbors=5, borderline=False, categorical_features=None, continuous_features=None):
+    """
+    Un'implementazione personalizzata di SMOTE con encoding per le funzioni categoriali.
+    """
+
+    def __init__(self, sampling_strategy: Union[Dict[str, int], str], k_neighbors: int = 5, 
+                 borderline: bool = False) -> None:
+        """
+        Inizializza l'oggetto SMOTE_ENC.
+
+        Args:
+            sampling_strategy (Union[Dict[str, int], str]): La strategia di campionamento.
+            k_neighbors (int): Il numero di vicini più vicini.
+            borderline (bool): Se True, usa BorderlineSMOTE invece di SMOTE.
+        """
         self.sampling_strategy = sampling_strategy
         self.k_neighbors = k_neighbors
         self.borderline = borderline
-        self.categorical_features = categorical_features
-        self.continuous_features = continuous_features
+        self.categorical_features = []
+        self.continuous_features = []
 
-    def fit_resample(self, X, y):
+    def fit_resample(self, X: pd.DataFrame, y: pd.Series) -> Union[pd.DataFrame, pd.Series]:
+        """
+        Adatta il modello ai dati e risampla.
+
+        Args:
+            X (pd.DataFrame): I dati di input.
+            y (pd.Series): Le etichette di output.
+
+        Returns:
+            Union[pd.DataFrame, pd.Series]: I dati risampolati e le etichette risampolate.
+        """
         if isinstance(self.sampling_strategy, dict):
             sampling_strategy_dict = {}
             self.class_counts = dict(Counter(y))
@@ -26,18 +50,8 @@ class SMOTE_ENC(BaseEstimator):
                     sampling_strategy_dict[cls] = self.class_counts[cls]
             self.sampling_strategy = sampling_strategy_dict
 
-        features_dict = {i: col for i, col in enumerate(self.continuous_features + self.categorical_features)}
-        current_cols = []
-
-        for i, col in features_dict.items():
-            if i in X.columns:
-                current_cols.append(col)
-        
-        self.categorical_features = [col for col in self.categorical_features if col in current_cols]
-        self.continuous_features = [col for col in self.continuous_features if col in current_cols]
-
-        X = X.rename(columns=features_dict)
-        y = pd.Series(y).reset_index(drop=True)
+        self.categorical_features = [col for col in X.columns if "cat__" in col]
+        self.continuous_features = [col for col in X.columns if "num__" in col]
         
         minority_class = y.value_counts().idxmin()
         minority_indices = np.where(y == minority_class)[0]

@@ -9,30 +9,73 @@ from scipy.stats import gaussian_kde
 
 EPSILON = 1e-10  # A small positive value to avoid division by zero
 
-def diff_entropy(data_cont):
+def diff_entropy(data_cont: np.ndarray) -> float:
+    """
+    Calcola l'entropia differenziale di un insieme di dati continui.
+
+    Args:
+        data_cont (np.ndarray): Un array di dati continui.
+
+    Returns:
+        float: L'entropia differenziale calcolata.
+    """
     density = gaussian_kde(data_cont)
     x_space = np.linspace(min(data_cont), max(data_cont), 1000)
     pdf = density.evaluate(x_space)
     return -np.trapz(pdf * np.log2(pdf + EPSILON), x=x_space)
 
-def entropy_discrete(data_disc):
+def entropy_discrete(data_disc: list) -> float:
+    """
+    Calcola l'entropia discreta di un insieme di dati categorici.
+
+    Args:
+        data_disc (list): Una lista di dati categorici.
+
+    Returns:
+        float: L'entropia discreta calcolata.
+    """
     counts = Counter(data_disc)
     total = sum(counts.values())
     probabilities = [count / total for count in counts.values()]
     return -sum(p * np.log2(p + EPSILON) for p in probabilities if p > 0)
 
 class MutualInfoFeatureSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, len_numerical = 2, k = 'all'):
-        self.k = k
-        self.len_numerical = len_numerical
+    """
+    Classe per la selezione delle caratteristiche basata sull'informazione mutua.
+    """
 
-    def fit(self, X, y):
-        if isinstance(X, np.ndarray):
-            X = pd.DataFrame(X)
-        
-        for col in X.columns[:self.len_numerical]:
+    def __init__(self, k: str = 'all'):
+        """
+        Inizializza l'oggetto MutualInfoFeatureSelector.
+
+        Args:
+            k (str): Il numero di caratteristiche da selezionare. Può essere 'all' per selezionare tutte le caratteristiche.
+        """
+        self.k = k
+        self.feature_names_: list = None
+        self.num_features_: int = None
+        self.mi_with_class_: list = None
+        self.selected_features_: list = None
+        self.categorical_features = []
+        self.continuous_features = []
+
+    def fit(self, X: pd.DataFrame, y: np.ndarray) -> 'MutualInfoFeatureSelector':
+        """
+        Adatta il selezionatore alle caratteristiche fornite.
+
+        Args:
+            X (pd.DataFrame): I dati di input.
+            y (np.ndarray): I valori target.
+
+        Returns:
+            MutualInfoFeatureSelector: L'istanza stessa.
+        """
+        self.categorical_features = [col for col in X.columns if "cat__" in col]
+        self.continuous_features = [col for col in X.columns if "num__" in col]
+
+        for col in self.continuous_features:
             X[col] = X[col].astype('float64')
-        for col in X.columns[self.len_numerical:]:
+        for col in self.categorical_features:
             X[col] = X[col].astype('category')
         
         self.feature_names_ = X.columns
@@ -54,7 +97,17 @@ class MutualInfoFeatureSelector(BaseEstimator, TransformerMixin):
     
         return self
     
-    def _select_features(self, X, y):
+    def _select_features(self, X: pd.DataFrame, y: np.ndarray) -> list:
+        """
+        Seleziona le caratteristiche in base all'informazione mutua.
+
+        Args:
+            X (pd.DataFrame): I dati di input.
+            y (np.ndarray): I valori target.
+
+        Returns:
+            list: Le caratteristiche selezionate.
+        """
         if self.k == 'all':
             return self.feature_names_.tolist()
     
@@ -114,14 +167,21 @@ class MutualInfoFeatureSelector(BaseEstimator, TransformerMixin):
             
         return selected_features
     
-    def transform(self, X):
-        check_is_fitted(self, 'selected_features_')
-        if isinstance(X, np.ndarray):
-            X = pd.DataFrame(X)
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Applica la trasformazione selezionando le caratteristiche.
 
-        for col in X.columns[:self.len_numerical]:
+        Args:
+            X (pd.DataFrame): I dati di input.
+
+        Returns:
+            pd.DataFrame: I dati con le caratteristiche selezionate.
+        """
+        check_is_fitted(self, 'selected_features_')
+
+        for col in self.continuous_features:
             X[col] = X[col].astype('float64')
-        for col in X.columns[self.len_numerical:]:
+        for col in self.categorical_features:
             X[col] = X[col].astype('category')
         
         for column in X.columns:
@@ -130,7 +190,13 @@ class MutualInfoFeatureSelector(BaseEstimator, TransformerMixin):
 
         return X
     
-    def _get_support_mask(self):
+    def _get_support_mask(self) -> np.ndarray:
+        """
+        Restituisce un vettore booleano che indica se una caratteristica è stata selezionata.
+
+        Returns:
+            np.ndarray: Un vettore booleano.
+        """
         check_is_fitted(self, 'selected_features_')
         mask = np.zeros(self.num_features_, dtype=bool)
         for feature_name in self.selected_features_:

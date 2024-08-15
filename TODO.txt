@@ -1,1 +1,0 @@
-risolvere il warning nel fit

@@ -38,14 +38,15 @@ def create_pipeline(
         pipeline_steps.append(('cat', categorical_unord_pipeline, categorical_features))
 
     preprocessing = ColumnTransformer(pipeline_steps)
+    preprocessing.set_output(transform="pandas") # per eliminare il warning
 
     pipeline_steps = [
         ('preprocessing', preprocessing),
-        ('feature_selector', MutualInfoFeatureSelector(len_numerical=len(numerical_features)))
+        ('feature_selector', MutualInfoFeatureSelector())
     ]
 
     if oversample_needed:
-        pipeline_steps.append(('oversampler', SMOTE_ENC(sampling_strategy=oversampling_strategy, categorical_features=categorical_features, continuous_features=numerical_features)))
+        pipeline_steps.append(('oversampler', SMOTE_ENC(sampling_strategy=oversampling_strategy)))
         
     if undersample_needed:
         pipeline_steps.append(('undersampler', MixedEditedNearestNeighbors(sampling_strategy=undersampling_strategy)))
