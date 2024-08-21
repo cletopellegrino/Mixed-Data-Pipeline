@@ -8,9 +8,17 @@ from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
 from feature_selection import MutualInfoFeatureSelector
 from imputer import CustomKNNImputer, CustomSimpleImputer
 from over_sampling import SMOTE_ENC
+from encoder import DynamicColumnEncoder
 from under_sampling import MixedEditedNearestNeighbors
 from model import MixedDecisionTree, MixedGaussianNB, MixedKNN
 import pandas as pd
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 def create_pipeline(
     numerical_features: List[str],
@@ -22,7 +30,7 @@ def create_pipeline(
     undersample_needed: bool = False,
     undersampling_strategy: Optional[Union[str, float, List[str], Dict[str, float]]] = 'majority',
     target: Optional[pd.Series] = None,
-    model: str = 'MixedRandomForest',
+    model: str = 'RandomForestClf',
 ):
 
     pipeline_steps = []
@@ -34,8 +42,8 @@ def create_pipeline(
         pipeline_steps.append(('num', numerical_pipeline, numerical_features))
 
     if len(categorical_features) > 0:
-        categorical_unord_pipeline = Pipeline([('imputer', CustomSimpleImputer(train_labels=target))]) if imputers_needed else 'passthrough'
-        pipeline_steps.append(('cat', categorical_unord_pipeline, categorical_features))
+        categorical_pipeline = Pipeline([('imputer', CustomSimpleImputer(train_labels=target))]) if imputers_needed else 'passthrough'
+        pipeline_steps.append(('cat', categorical_pipeline, categorical_features))
 
     preprocessing = ColumnTransformer(pipeline_steps)
     preprocessing.set_output(transform="pandas") # per eliminare il warning
@@ -51,14 +59,69 @@ def create_pipeline(
     if undersample_needed:
         pipeline_steps.append(('undersampler', MixedEditedNearestNeighbors(sampling_strategy=undersampling_strategy)))
 
-    if model == "MixedRandomForest":
-        pipeline_steps.append(('model', BaggingClassifier(random_state=0, n_jobs=-1, n_estimators=30, estimator=MixedDecisionTree())))
-    elif model == "AdaBoostMixedGaussianNB":
-        pipeline_steps.append(('model', AdaBoostClassifier(random_state=0, estimator=MixedGaussianNB(), algorithm="SAMME")))
-    elif model == "MixedKNN":
-        pipeline_steps.append(('model', MixedKNN()))
-    else:
-        raise ValueError("Model not supported")
+    match model:
+        case "RandomForestClf":
+            if categorical_features:
+                pipeline_steps.append(('model', BaggingClassifier(random_state=0, n_jobs=-1, n_estimators=30, estimator=MixedDecisionTree())))
+            else:
+                pipeline_steps.append(('model', RandomForestClassifier(random_state=0, n_jobs=-1, n_estimators=30)))
+        
+        case "RandomForestReg":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+
+            pipeline_steps.append(('model', RandomForestClassifier(random_state=0, n_jobs=-1, n_estimators=30)))
+        
+        case "DecisionTreeClf":
+            if categorical_features:
+                pipeline_steps.append(('model', MixedDecisionTree()))
+            else:
+                pipeline_steps.append(('model', DecisionTreeClassifier(random_state=0)))
+        
+        case "DecisionTreeReg":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+
+            pipeline_steps.append(('model', DecisionTreeRegressor(random_state=0)))
+        
+        case "AdaBoostGaussianNB":
+            if categorical_features:
+                pipeline_steps.append(('model', AdaBoostClassifier(random_state=0, estimator=MixedGaussianNB(), algorithm="SAMME", n_estimators=30)))
+            else:
+                pipeline_steps.append(('model', AdaBoostClassifier(random_state=0, estimator=GaussianNB(), algorithm="SAMME")))
+        
+        case "KNNClf":
+            if categorical_features:
+                pipeline_steps.append(('model', MixedKNN()))
+            else:
+                pipeline_steps.append(('model', KNeighborsClassifier()))
+        
+        case "KNNReg":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+
+            pipeline_steps.append(('model', KNeighborsRegressor()))
+
+        case "LogisticRegression":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+
+            pipeline_steps.append(('model', LogisticRegression(random_state=0)))
+        
+        case "NeuralNetworkClf":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+            
+            pipeline_steps.append(('model', MLPClassifier(random_state=0)))
+        
+        case "NeuralNetworkReg":
+            if categorical_features:
+                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+            
+            pipeline_steps.append(('model', MLPRegressor(random_state=0)))
+        
+        case _:
+            raise ValueError(f"Model '{model}' not supported")
     
 
     return Pipeline(pipeline_steps)
