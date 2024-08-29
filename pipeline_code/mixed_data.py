@@ -17,12 +17,12 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 
 def create_pipeline(
     numerical_features: List[str],
     categorical_features: List[str],
+    ordinal_columns: Optional[Dict[str, List[str]]] = None,
     imputers_needed: bool = False,
     scaler: Optional[BaseEstimator] = StandardScaler(),
     oversample_needed: bool = False,
@@ -68,7 +68,7 @@ def create_pipeline(
         
         case "RandomForestReg":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
 
             pipeline_steps.append(('model', RandomForestClassifier(random_state=0, n_jobs=-1, n_estimators=30)))
         
@@ -80,7 +80,7 @@ def create_pipeline(
         
         case "DecisionTreeReg":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
 
             pipeline_steps.append(('model', DecisionTreeRegressor(random_state=0)))
         
@@ -98,25 +98,25 @@ def create_pipeline(
         
         case "KNNReg":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
 
             pipeline_steps.append(('model', KNeighborsRegressor()))
 
         case "LogisticRegression":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
 
             pipeline_steps.append(('model', LogisticRegression(random_state=0)))
         
         case "NeuralNetworkClf":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
             
             pipeline_steps.append(('model', MLPClassifier(random_state=0)))
         
         case "NeuralNetworkReg":
             if categorical_features:
-                pipeline_steps.append(('encoder', DynamicColumnEncoder()))
+                pipeline_steps.append(('encoder', DynamicColumnEncoder(ordinal_columns=ordinal_columns)))
             
             pipeline_steps.append(('model', MLPRegressor(random_state=0)))
         
